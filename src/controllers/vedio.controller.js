@@ -6,39 +6,68 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadCloudinary } from "../utils/cloudinary.js";
 
-// const getAllVedios = asyncHandler( async (req, res) => {
-//     const { page=1, limit=10, query, sortBy, sortType, userId } = req.query;
-//     const startIndex = (page - 1) * limit
-//     const endeIndex = page * limit;
+const getAllVedios = asyncHandler( async (req, res) => {
+    const { page=1, limit=10, query, sortBy, sortType, userId } = req.query;
+    let pipeline = [];
 
-//     const results = {};
-//     const sort = {};
+    if(query){
+        pipeline.push({
+            $search: {
+                $index: "search-vedio",
+                $text: {
+                    query: query,
+                    path:["title", "description"]
+                }
+            }
+        });
+    }
 
-//     if(endeIndex < await Vedio.countDocuments().exec()){
-//         results.next = {
-//             page: page + 1,
-//             limit
-//         }
-//     }
+    if(userId){
+        if(!isValidObjectId(userId)){
+            throw new ApiError(400, "Invalid user Id.")
+        }
 
-//     if(startIndex > 0){
-//         results.previous = {
-//             page: page - 1,
-//             limit
-//         }
-//     }
+        pipeline.push({
+            $match: {
+                owner: new mongoose.Types.ObjectId(userId)
+            }
+        })
+    }
 
-   
-//     const str = req.query.sortBy.split(":")
-//     sort[str[0]] = str[1] === "desc" ? -1 : 1;
+    pipeline.push({
+        $match: {
+            isPublished: true
+        }
+    });
 
-//     results.result = await Vedio.find({
+    if(sortBy && sortType){
+        pipeline.push({
+            $sort: {
+                [sortBy]: sortBy === "asc" ? 1 : -1
+            }
+        })
+    }else {
+        pipeline.push({
+            $sort: { createdAt : -1}
+        })
+    }
 
-//     }).limit(limit).skip(startIndex).exec();
+    const option = {
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
+    }
 
-//     const getVedios = results;
+    const allVedios = await Vedio.aggregatePaginate(pipeline, option)
 
-// })
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            allVedios,
+            "All vedios fetched sccessfully"
+        )
+    )
+
+})
 
 const publishedAVideo = asyncHandler( async (req, res) => {
     const { title, description } = req.body;

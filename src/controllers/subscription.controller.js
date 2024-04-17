@@ -12,6 +12,12 @@ const toggleSubscription = asyncHandler( async (req, res) => {
         throw new ApiError(400, "Invalid channel Id.")
     }
 
+    const channelExists = await User.findById(channelId);
+
+    if(!channelExists){
+        throw new ApiError(404, "channel not found.")
+    }
+
     const isSubscribed = await Subscription.findOne(
         {
             subscriber: req.user?._id,
@@ -35,7 +41,7 @@ const toggleSubscription = asyncHandler( async (req, res) => {
 
     await Subscription.create({
         subscriber: req.user?._id,
-        channelId: channelId
+        channel: channelId
     });
 
     return res
@@ -54,6 +60,12 @@ const getUserChannelSubscribers = asyncHandler( async (req, res) => {
 
     if(!isValidObjectId(channelId)){
         throw new ApiError(400, "Invalid channel Id.")
+    }
+
+    const channelExists = await User.findById(channelId);
+
+    if (!channelExists) {
+        throw new ApiError(404, "channel not found");
     }
 
     const subscribers = await Subscription.aggregate([
@@ -104,6 +116,12 @@ const getSubscribedChannels = asyncHandler( async (req, res) => {
         throw new ApiError(400, "Invalid Subscriber Id.");
     }
 
+    const userExists = await User.findById(subscriberId);
+
+    if (!userExists) {
+        throw new ApiError(404, "channel not found");
+    }
+
     const subscriberedChannel = await Subscription.aggregate([
         {
             $match: {
@@ -119,7 +137,7 @@ const getSubscribedChannels = asyncHandler( async (req, res) => {
                 pipeline: [
                     {
                         $lookup: {
-                            from: "videos",
+                            from: "vedios",
                             localField: "_id",
                             foreignField: "owner",
                             as: "channelVideos"
